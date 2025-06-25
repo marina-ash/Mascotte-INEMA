@@ -10,6 +10,8 @@ extern Servo servo1;
 extern Servo servo2;
 
 void setupServos();
-void moveServos();  // Fonction pour animer les servos
+void moveServos();              // Animation aller-retour (optionnel)
+void servoPositionDebout();     // Met les servos en position "debout"
+void servoPositionAssis();      // Met les servos en position "assis"
 
 #endif

@@ -1,7 +1,9 @@
 
 #include "site-web.h"
-#include "led-eyes.h"
-#include <FastLED.h>
+#include "led-eyes.h"   // Contient eyesOn, effetRegard(), eteindreYeux()
+#include "servo.h"      // Contient les fonctions pour position debout/assis
+#include <WiFi.h>
+#include <WebServer.h>
 
 
 const char *ssid = "ESP32_Network";
@@ -17,115 +19,46 @@ const char htmlPage[] PROGMEM = R"rawliteral(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Commande du Robot Mascotte</title>
     <style>
+        :root {
+            --primary: #6cae4f;
+            --primary-dark: #4a8c3a;
+            --text-light: #ffffff;
+            --text-dark: #333;
+        }
         body {
             font-family: Arial, sans-serif;
             background-color: #eef2f3;
-            text-align: center;
-            padding: 20px;
+            margin: 0;
+            padding: 0;
         }
         .navbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background-color: #6cae4f;
+            background-color: var(--primary);
             padding: 15px;
             color: white;
-            font-size: 18px;
-            position: relative;
-        }
-        .nav-buttons {
-            display: flex;
-        }
-        .nav-button {
-            background: white;
-            color: #6cae4f;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-left: 5px;
-        }
-        .nav-button:hover {
-            background-color: #e0e0e0;
-        }
-         .position-buttons {
-            display: flex;
-            justify-content: space-evenly;
-            margin-top: 20px;
-        }
-        .position-button {
-            padding: 12px 25px;
-            font-size: 18px;
-            background-color: #4a8c3a;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        .position-button:hover {
-            background-color: #6cae4f;
-            transform: scale(1.05);
-        }
-        .position-button:active {
-            background-color: #3e7030;
-        }
-        .control-buttons {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-            width: 100%;
-            max-width: 280px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .control-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 70px;
-            height: 70px;
-            font-size: 30px;
-            font-weight: bold;
-            background: linear-gradient(135deg, #4a8c3a, #6cae4f);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        .control-button:hover {
-            transform: scale(1.1);
         }
         .menu-toggle {
             display: none;
             font-size: 24px;
             cursor: pointer;
         }
-        @media (max-width: 768px) {
-            .nav-buttons {
-                display: none;
-                flex-direction: column;
-                position: absolute;
-                top: 60px;
-                right: 10px;
-                background: #6cae4f;
-                width: 150px;
-                border-radius: 5px;
-            }
-            .nav-buttons.show {
-                display: flex;
-            }
-            .nav-button {
-                width: 100%;
-                margin: 5px 0;
-            }
-            .menu-toggle {
-                display: block;
-            }
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .nav-button {
+            background: white;
+            color: var(--primary);
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .nav-button:hover {
+            background-color: #e0e0e0;
         }
         .container {
             display: none;
@@ -133,80 +66,110 @@ const char htmlPage[] PROGMEM = R"rawliteral(
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-            max-width: 400px;
-            margin: 60px auto;
+            max-width: 600px;
+            margin: 40px auto;
+            text-align: center;
         }
         .container.active {
             display: block;
         }
-        .button {
+        .button, .position-button {
             display: block;
             width: 100%;
             padding: 12px;
             margin: 10px 0;
-            background: linear-gradient(135deg, #6cae4f, #4a8c3a);
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
             border: none;
             border-radius: 8px;
-            cursor: pointer;
             font-size: 16px;
+            cursor: pointer;
             transition: 0.3s;
         }
-        .button:hover {
+        .button:hover, .position-button:hover {
             transform: scale(1.05);
-            
+        }
         .control-buttons {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
-            margin-top: 10px;
-            width: 100%;
+            justify-content: center;
             max-width: 280px;
-            margin-left: auto;
-            margin-right: auto;
+            margin: 20px auto;
         }
         .control-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
             width: 70px;
             height: 70px;
             font-size: 30px;
             font-weight: bold;
-            background: linear-gradient(135deg, #4a8c3a, #6cae4f);
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
             color: white;
             border: none;
             border-radius: 50%;
             cursor: pointer;
-            transition: 0.3s;
-        };
-        
+            transition: transform 0.3s;
+        }
+        .control-button:hover {
+            transform: scale(1.1);
+        }
+        .questions-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+        .questions-list li {
+            margin-bottom: 15px;
+        }
+        .control-icons button {
+            margin-left: 5px;
+            cursor: pointer;
+        }
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: block;
+            }
+            .nav-buttons {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 60px;
+                right: 15px;
+                background: var(--primary);
+                border-radius: 5px;
+                padding: 10px;
+            }
+            .nav-buttons.show {
+                display: flex;
+            }
+            .nav-button {
+                width: 150px;
+                color: white;
+                background: none;
+            }
         }
     </style>
     <script>
-        function toggleEyes() {
-            fetch('/toggleEyes')
-                .then(response => response.text())
-                .then(state => {
-                    document.getElementById('eyesButton').innerText = state === "ON" ? "Éteindre les Yeux" : "Allumer les Yeux";
-                    document.getElementById('eyesButton').className = state === "ON" ? "button red" : "button green";
-                });
-        }
         function toggleMenu() {
             document.querySelector('.nav-buttons').classList.toggle('show');
         }
+
         function showMenu(menuId) {
             document.querySelectorAll('.container').forEach(menu => menu.classList.remove('active'));
             document.getElementById(menuId).classList.add('active');
         }
+
         function showPopup() {
             if (confirm("Voulez-vous vraiment réinitialiser le robot ?")) {
-                resetRobot();
+                alert("Le robot a été réinitialisé.");
             }
         }
-        function resetRobot() {
-            alert("Le robot a été réinitialisé.");
+
+        function playAudio(question) {
+            console.log("Lecture: " + question);
+        }
+
+        function pauseAudio() {
+            console.log("Pause audio");
         }
     </script>
 </head>
@@ -221,75 +184,118 @@ const char htmlPage[] PROGMEM = R"rawliteral(
             <button class="nav-button" onclick="showPopup()">Reset</button>
         </div>
     </div>
-    
+
     <div id="presentation" class="container active">
         <h1>Commandes de Présentation</h1>
+        <button class="button">Mascotte d'INEMA</button>
+        <button class="button">Campus</button>
         <button class="button">EMPIEO</button>
         <button class="button">RPPI</button>
-        <button class="button">Campus</button>
-        <button class="button">Pédagogie</button>
         <button class="button">Questions récurrentes</button>
     </div>
-    
-    <div id="control" class="container menu">
-        <h1>Contrôle du Robot</h1>
-        <div class="control-buttons">
-            <div class="control-button" style="grid-column: 2; grid-row: 1;">⬆</div>
-            <div class="control-button" style="grid-column: 1; grid-row: 2;">⬅</div>
-            <div class="control-button" style="grid-column: 2; grid-row: 2;">⏹</div>
-            <div class="control-button" style="grid-column: 3; grid-row: 2;">➡</div>
-            <div class="control-button" style="grid-column: 2; grid-row: 3;">⬇</div>
-        </div>
-        <div class="position-buttons">
-            <button class="position-button" onclick="setPosition('debout')">Position Debout</button>
-            <button class="position-button" onclick="setPosition('assis')">Position Assis</button>
-            <button id="eyesButton" class="position-button" onclick="toggleEyes()">Éteindre les Yeux</button>
 
-        </div>
-    </div>
-    
+    <div id="control" class="container">
+  <h1>Commandes du Robot</h1>
+
+  <!-- Posture -->
+    <h2>Posture</h2>
+  <div class="position-buttons">
+    <button class="position-button" onclick="sendCommand('position', 'debout')">🧍 Debout</button>
+  </div>
+  <div class="position-buttons">
+    <button class="position-button" onclick="sendCommand('position', 'assis')">🪑 Assis</button>
+  </div>
+
+  <h2 style="margin-top:2rem;">Yeux</h2>
+<div class="position-buttons" style="margin-bottom: 1rem;">
+  <button class="position-button" onclick="sendCommand('eyes', 'on')">👁️ Allumer les yeux</button>
+  <div style="font-size: 0.75em; color: #aaa; margin-top: 4px;">/yeuxOn</div>
+</div>
+
+<div class="position-buttons" style="margin-bottom: 1rem;">
+  <button class="position-button" onclick="sendCommand('eyes', 'off')">🚫 Éteindre les yeux</button>
+  <div style="font-size: 0.75em; color: #aaa; margin-top: 4px;">/yeuxOff</div>
+</div>
+
+
     <div id="questions" class="container">
         <h1>Questions Fréquentes</h1>
         <ul class="questions-list">
-            <li>Quelles sont les spécialités proposées à l'école ?
+            <li>Salut ! Tu peux te présenter ? 
                 <div class="control-icons">
-                    <button onclick="playAudio('Quelles sont les spécialités proposées à l\'école ?')">▶️</button>
+                    <button onclick="playAudio(this.textContent)">▶️</button>
                     <button onclick="pauseAudio()">⏸️</button>
                 </div>
             </li>
-            <li>Comment intégrer l'école après le bac ?
+            <li>Où est situé le campus de Rouen ?
                 <div class="control-icons">
-                    <button onclick="playAudio('Comment intégrer l\'école après le bac ?')">▶️</button>
+                    <button onclick="playAudio(this.textContent)">▶️</button>
                     <button onclick="pauseAudio()">⏸️</button>
                 </div>
             </li>
-            <li>Quelles sont les opportunités de stages et d'alternance ?
+            <li>Qu'est-ce qu'on trouve sur le campus ? 
                 <div class="control-icons">
-                    <button onclick="playAudio('Quelles sont les opportunités de stages et d\'alternance ?')">▶️</button>
+                    <button onclick="playAudio(this.textContent)">▶️</button>
                     <button onclick="pauseAudio()">⏸️</button>
                 </div>
             </li>
-            <li>Y a-t-il un programme d'échanges internationaux ?
+            <li>Qui gère les questions quotidiennes ? 
                 <div class="control-icons">
-                    <button onclick="playAudio('Y a-t-il un programme d\'échanges internationaux ?')">▶️</button>
+                    <button onclick="playAudio(this.textContent)">▶️</button>
                     <button onclick="pauseAudio()">⏸️</button>
                 </div>
             </li>
-            <li>Quels sont les débouchés après la formation ?
+            <li>Quels parcours propose l'école INEMA ?
                 <div class="control-icons">
-                    <button onclick="playAudio('Quels sont les débouchés après la formation ?')">▶️</button>
+                    <button onclick="playAudio(this.textContent)">▶️</button>
                     <button onclick="pauseAudio()">⏸️</button>
                 </div>
             </li>
-            <li>Comment se passe l'admission pour les étudiants étrangers ?
+            <li>Que couvre le parcours EMPIEO ?
                 <div class="control-icons">
-                    <button onclick="playAudio('Comment se passe l\'admission pour les étudiants étrangers ?')">▶️</button>
+                    <button onclick="playAudio(this.textContent)">▶️</button>
                     <button onclick="pauseAudio()">⏸️</button>
                 </div>
             </li>
-            <li>Quelles sont les options disponibles en première année ?
+            <li>Que couvre le parcours RPPI ? 
                 <div class="control-icons">
-                    <button onclick="playAudio('Quelles sont les options disponibles en première année ?')">▶️</button>
+                    <button onclick="playAudio(this.textContent)">▶️</button>
+                    <button onclick="pauseAudio()">⏸️</button>
+                </div>
+            </li>
+            <li>Les cours sont-ils en présentiel ou en distanciel ? 
+                <div class="control-icons">
+                    <button onclick="playAudio(this.textContent)">▶️</button>
+                    <button onclick="pauseAudio()">⏸️</button>
+                </div>
+            </li>
+            <li>Est-ce un problème de ne pas avoir de connaissances en amélioration continue et management ?  
+                <div class="control-icons">
+                    <button onclick="playAudio(this.textContent)">▶️</button>
+                    <button onclick="pauseAudio()">⏸️</button>
+                </div>
+            </li>
+            <li>Y a-t-il des projets pendant la formation ?  
+                <div class="control-icons">
+                    <button onclick="playAudio(this.textContent)">▶️</button>
+                    <button onclick="pauseAudio()">⏸️</button>
+                </div>
+            </li>
+            <li>Est-ce que je peux choisir n'importe quel domaine industriel pour l'alternance ?  
+                <div class="control-icons">
+                    <button onclick="playAudio(this.textContent)">▶️</button>
+                    <button onclick="pauseAudio()">⏸️</button>
+                </div>
+            </li>
+            <li>Comment postuler ?  
+                <div class="control-icons">
+                    <button onclick="playAudio(this.textContent)">▶️</button>
+                    <button onclick="pauseAudio()">⏸️</button>
+                </div>
+            </li>
+            <li>Merci ! Qui puis-je contacter pour plus d'informations ?   
+                <div class="control-icons">
+                    <button onclick="playAudio(this.textContent)">▶️</button>
                     <button onclick="pauseAudio()">⏸️</button>
                 </div>
             </li>
@@ -299,34 +305,51 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-bool eyesOn = false;
-void setupWebServer() {
-    Serial.begin(115200);
-
-    WiFi.softAP(ssid, password);
-    Serial.print("Connectez-vous à '"); Serial.print(ssid); Serial.println("' puis accédez à : ");
-    Serial.println(WiFi.softAPIP());
-
-    server.on("/", []() { server.send(200, "text/html", htmlPage); });
-
-   server.on("/toggleEyes", []() {
-    eyesOn = !eyesOn;
-    Serial.print("Nouvel état des yeux après changement : ");
-    Serial.println(eyesOn);
-
-    if (eyesOn) {
-    Serial.println("Activation des yeux");
-    effetRegard();  // Fonction qui gère l'allumage des LEDs
-} else {
-    Serial.println("Extinction des yeux");
-    eteindreYeux(); // Appelle la fonction pour éteindre les LEDs
+void handleRoot() {
+    server.send_P(200, "text/html", htmlPage);
 }
 
+void setupWebServer() {
+    WiFi.begin(ssid, password);
+    Serial.print("Connexion WiFi...");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println(" Connecté !");
+    Serial.println(WiFi.localIP());
 
-    server.send(200, "text/plain", eyesOn ? "ON" : "OFF");
-});
+    server.on("/", handleRoot);
+
+    server.on("/debout", []() {
+        Serial.println("Commande : Debout");
+        servoPositionDebout();  // Fonction dans servo.cpp
+        server.send(200, "text/plain", "Debout !");
+    });
+
+    server.on("/assis", []() {
+        Serial.println("Commande : Assis");
+        servoPositionAssis();   // Fonction dans servo.cpp
+        server.send(200, "text/plain", "Assis !");
+    });
+
+    server.on("/yeuxOn", []() {
+        Serial.println("Commande : yeux allumés");
+        eyesOn = true;          // variable globale dans led-eyes.cpp
+        effetRegard();          // fonction dans led-eyes.cpp
+        server.send(200, "text/plain", "Yeux allumés !");
+    });
+
+    server.on("/yeuxOff", []() {
+        Serial.println("Commande : yeux éteints");
+        eyesOn = false;
+        eteindreYeux();         // fonction dans led-eyes.cpp
+        server.send(200, "text/plain", "Yeux éteints !");
+    });
 
     server.begin();
-    Serial.println("Serveur Web lancé");
 }
 
+void loopWebServer() {
+    server.handleClient();
+}
