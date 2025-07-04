@@ -6,11 +6,12 @@
 #include <WebServer.h>
 
 
-const char *ssid = "ESP32_Network";
-const char *password = "12345678";
+const char *ssid = "ESP32_Network"; // connection à l'ip de la ESP32, il sera afficher sur votre wifi
+const char *password = "12345678"; // Mots de passe de connexion
 
 WebServer server(80);
 
+// Affichage de l'application en HTML et CSS
 const char htmlPage[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="fr">
@@ -304,37 +305,38 @@ void handleRoot() {
     server.send_P(200, "text/html", htmlPage);
 }
 
-void setupWebServer() {
+void setupWebServer() { // connection au wifi avec l'ip et le mots de passe
     WiFi.begin(ssid, password);
     Serial.print("Connexion WiFi...");
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
     }
+    // Une affichage pour voire si le composant est bien connecter ou pas
     Serial.println(" Connecté !");
     Serial.println(WiFi.localIP());
 
     server.on("/", handleRoot);
-
+    // Variable qui connecte le bouton debout de l'application au fonctionnement back-end du code
     server.on("/debout", []() {
         Serial.println("Commande : Debout");
         servoPositionDebout();  // Fonction dans servo.cpp
         server.send(200, "text/plain", "Debout !");
     });
-
+    // Variable qui connecte le bouton assis de l'application au fonctionnement back-end du code
     server.on("/assis", []() {
         Serial.println("Commande : Assis");
         servoPositionAssis();   // Fonction dans servo.cpp
         server.send(200, "text/plain", "Assis !");
     });
-
+    // Variable qui allumer les yeux de la mascotte debout grâce à l'application au fonctionnement back-end du code
     server.on("/yeuxOn", []() {
         Serial.println("Commande : yeux allumés");
         eyesOn = true;          // variable globale dans led-eyes.cpp
         effetRegard();          // fonction dans led-eyes.cpp
         server.send(200, "text/plain", "Yeux allumés !");
     });
-
+    // Variable qui étient les yeux de la mascotte grâce à l'application au fonctionnement back-end du code
     server.on("/yeuxOff", []() {
         Serial.println("Commande : yeux éteints");
         eyesOn = false;
