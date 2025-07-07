@@ -4,12 +4,20 @@
 
 void setup() {
     Serial.begin(115200);
+
+    // Initialisation des modules
     setupLeds();       // Initialisation des LEDs
-    setupWebServer();  // Serveur Web
-    setupServos();     // Servomoteurs (à adapter selon tes besoins)
+    setupWebServer();  // Initialisation du serveur web
+    setupServos();     // Initialisation des servomoteurs
 }
 
 void loop() {
-    server.handleClient();  // Webserver actif
-    // Pas besoin de boucle updateLeds automatique si contrôle via site
+    // Gestion des LEDs
+    updateLeds();
+
+    // Gestion des requêtes du serveur web
+    server.handleClient();
+
+    // Mouvement des servomoteurs
+    moveServos();
 }

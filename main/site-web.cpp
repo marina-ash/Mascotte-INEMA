@@ -1,17 +1,14 @@
 
 #include "site-web.h"
-#include "led-eyes.h"   // Contient eyesOn, effetRegard(), eteindreYeux()
-#include "servo.h"      // Contient les fonctions pour position debout/assis
-#include <WiFi.h>
-#include <WebServer.h>
+#include "led-eyes.h"
+#include <FastLED.h>
 
 
-const char *ssid = "ESP32_Network"; // connection à l'ip de la ESP32, il sera afficher sur votre wifi
-const char *password = "12345678"; // Mots de passe de connexion
+const char *ssid = "ESP32_Network";
+const char *password = "12345678";
 
 WebServer server(80);
 
-// Affichage de l'application en HTML et CSS
 const char htmlPage[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="fr">
@@ -299,54 +296,37 @@ const char htmlPage[] PROGMEM = R"rawliteral(
   </div>
 </body>
 </html>
+
 )rawliteral";
 
-void handleRoot() {
-    server.send_P(200, "text/html", htmlPage);
+bool eyesOn = false;
+void setupWebServer() {
+    Serial.begin(115200);
+
+    WiFi.softAP(ssid, password);
+    Serial.print("Connectez-vous à '"); Serial.print(ssid); Serial.println("' puis accédez à : ");
+    Serial.println(WiFi.softAPIP());
+
+    server.on("/", []() { server.send(200, "text/html", htmlPage); });
+
+   server.on("/toggleEyes", []() {
+    eyesOn = !eyesOn;
+    Serial.print("Nouvel état des yeux après changement : ");
+    Serial.println(eyesOn);
+
+    if (eyesOn) {
+    Serial.println("Activation des yeux");
+    effetRegard();  // Fonction qui gère l'allumage des LEDs
+} else {
+    Serial.println("Extinction des yeux");
+    eteindreYeux(); // Appelle la fonction pour éteindre les LEDs
 }
 
-void setupWebServer() { // connection au wifi avec l'ip et le mots de passe
-    WiFi.begin(ssid, password);
-    Serial.print("Connexion WiFi...");
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    // Une affichage pour voire si le composant est bien connecter ou pas
-    Serial.println(" Connecté !");
-    Serial.println(WiFi.localIP());
 
-    server.on("/", handleRoot);
-    // Variable qui connecte le bouton debout de l'application au fonctionnement back-end du code
-    server.on("/debout", []() {
-        Serial.println("Commande : Debout");
-        servoPositionDebout();  // Fonction dans servo.cpp
-        server.send(200, "text/plain", "Debout !");
-    });
-    // Variable qui connecte le bouton assis de l'application au fonctionnement back-end du code
-    server.on("/assis", []() {
-        Serial.println("Commande : Assis");
-        servoPositionAssis();   // Fonction dans servo.cpp
-        server.send(200, "text/plain", "Assis !");
-    });
-    // Variable qui allumer les yeux de la mascotte debout grâce à l'application au fonctionnement back-end du code
-    server.on("/yeuxOn", []() {
-        Serial.println("Commande : yeux allumés");
-        eyesOn = true;          // variable globale dans led-eyes.cpp
-        effetRegard();          // fonction dans led-eyes.cpp
-        server.send(200, "text/plain", "Yeux allumés !");
-    });
-    // Variable qui étient les yeux de la mascotte grâce à l'application au fonctionnement back-end du code
-    server.on("/yeuxOff", []() {
-        Serial.println("Commande : yeux éteints");
-        eyesOn = false;
-        eteindreYeux();         // fonction dans led-eyes.cpp
-        server.send(200, "text/plain", "Yeux éteints !");
-    });
+    server.send(200, "text/plain", eyesOn ? "ON" : "OFF");
+});
 
     server.begin();
+    Serial.println("Serveur Web lancé");
 }
 
-void loopWebServer() {
-    server.handleClient();
-}
