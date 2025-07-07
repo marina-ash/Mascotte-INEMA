@@ -9,6 +9,8 @@ const char *password = "12345678";
 
 WebServer server(80);
 
+bool eyesOn = true;
+
 const char htmlPage[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="fr">
@@ -200,15 +202,15 @@ const char htmlPage[] PROGMEM = R"rawliteral(
     <button class="position-button" onclick="sendCommand('position', 'assis')">🪑 Assis</button>
 
     <h2 style="margin-top:2rem;">Yeux</h2>
-    <div>
-      <button class="position-button" onclick="sendCommand('eyes', 'on')">👁️ Allumer les yeux</button>
-      <div style="font-size: 0.75em; color: #aaa; margin-top: 4px;">/yeuxOn</div>
-    </div>
+    <div class="control-section">
+  <button class="position-button on" onclick="sendCommand('eyes', 'on')">👁️ Allumer les yeux</button>
+  <p class="command-path">Commande : <code>/yeuxOn</code></p>
+</div>
 
-    <div>
-      <button class="position-button" onclick="sendCommand('eyes', 'off')">🚫 Éteindre les yeux</button>
-      <div style="font-size: 0.75em; color: #aaa; margin-top: 4px;">/yeuxOff</div>
-    </div>
+<div class="control-section">
+  <button class="position-button off" onclick="sendCommand('eyes', 'off')">👁️‍🗨️ Éteindre les yeux</button>
+  <p class="command-path">Commande : <code>/yeuxOff</code></p>
+</div>
   </div>
 
   <div id="questions" class="container">
@@ -297,36 +299,43 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 </body>
 </html>
 
+<script>
+  function sendCommand(type, action) {
+    const url = `http://192.168.4.1/yeux${action.charAt(0).toUpperCase() + action.slice(1)}`;
+    fetch(url)
+      .then(response => {
+        if (response.ok) {
+          console.log(`Commande envoyée : ${url}`);
+        } else {
+          console.error('Erreur lors de l’envoi de la commande');
+        }
+      })
+      .catch(error => {
+        console.error('Erreur réseau :', error);
+      });
+  }
+</script>
+
 )rawliteral";
 
-bool eyesOn = false;
 void setupWebServer() {
-    Serial.begin(115200);
-
     WiFi.softAP(ssid, password);
-    Serial.print("Connectez-vous à '"); Serial.print(ssid); Serial.println("' puis accédez à : ");
+    Serial.println("Serveur Web en cours de lancement...");
+    Serial.print("Adresse IP : ");
     Serial.println(WiFi.softAPIP());
 
-    server.on("/", []() { server.send(200, "text/html", htmlPage); });
+    server.on("/yeuxOn", []() {
+        eyesOn = true;
+        Serial.println("Commande reçue : yeux ON");
+        server.send(200, "text/plain", "Yeux allumés");
+    });
 
-   server.on("/toggleEyes", []() {
-    eyesOn = !eyesOn;
-    Serial.print("Nouvel état des yeux après changement : ");
-    Serial.println(eyesOn);
-
-    if (eyesOn) {
-    Serial.println("Activation des yeux");
-    effetRegard();  // Fonction qui gère l'allumage des LEDs
-} else {
-    Serial.println("Extinction des yeux");
-    eteindreYeux(); // Appelle la fonction pour éteindre les LEDs
-}
-
-
-    server.send(200, "text/plain", eyesOn ? "ON" : "OFF");
-});
+    server.on("/yeuxOff", []() {
+        eyesOn = false;
+        eteindreYeux();  // Appelle la fonction qui éteint les LEDs
+        Serial.println("Commande reçue : yeux OFF");
+        server.send(200, "text/plain", "Yeux éteints");
+    });
 
     server.begin();
-    Serial.println("Serveur Web lancé");
 }
-

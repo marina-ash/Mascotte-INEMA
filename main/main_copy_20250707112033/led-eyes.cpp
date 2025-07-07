@@ -17,10 +17,13 @@ void setupLeds() {
 }
 
 void updateLeds() {
+    if (!eyesOn) return;  // ne rien faire si les yeux sont désactivés
+
     effetRegard();
     delay(random(3000, 7000));
     clignement({4, 5, 10, 11}, CRGB::Green, CRGB::White);
 }
+
 
 void effetRegard() {
     if (!eyesOn) return;  // Ne fait rien si les yeux doivent être éteints
@@ -79,6 +82,11 @@ void eteindreYeux() {
     
     Serial.println("LEDs devraient être éteintes.");
 }
+
+void allumerYeux() {
+    effetRegard();  // alias vers ta fonction existante
+}
+
 
 void debugFastLED() {
     Serial.println("État actuel des LEDs :");
